@@ -1,4 +1,4 @@
-# Linux Process Management - Testpress Worker
+# Linux Process Management
 
 ## Project Overview
 Configured and deployed a Python background worker
