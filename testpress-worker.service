@@ -1,0 +1,32 @@
+
+[Unit]
+Description=Testpress Python Background Worker
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=labuser
+Group=labuser
+WorkingDirectory=/opt/testpress-worker
+
+ExecStart=/usr/bin/python3 /opt/testpress-worker/app.py
+
+EnvironmentFile=/etc/testpress-worker/worker.env
+
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+
+MemoryMax=150M
+CPUQuota=50%
+
+KillSignal=SIGTERM
+TimeoutStopSec=15
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target
