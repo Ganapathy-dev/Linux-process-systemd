@@ -1,267 +1,289 @@
-Linux Process Management – Running a Python Worker with systemd
-1. What I Learned
 
-In this project, I learned how to run a Python application as a Linux background service using systemd.
+# Linux Process Management – Running a Python Worker with systemd
 
-Instead of manually executing a Python script from the terminal, I configured Linux to manage the application as a service.
+A practical Linux project demonstrating how to deploy, manage and monitor a Python background worker using systemd.
 
-The service can:
+## 1. Project Overview
 
-Run in the background without keeping a terminal open.
-Start automatically when the system boots.
-Restart automatically if the application crashes.
-Stop gracefully when it receives a termination signal.
-Maintain logs that can be inspected later.
-Run under a dedicated, non-root Linux user.
-2. What is systemd?
+This project demonstrates how to run a Python application as a Linux background service using **systemd**.
 
-systemd is the system and service manager used by many Linux distributions, including Ubuntu.
+Instead of manually executing a Python script from the terminal, systemd manages the application as a service.
+
+The configured service supports:
+
+- Running in the background without keeping a terminal open.
+- Starting automatically when the system boots.
+- Restarting automatically if the application crashes.
+- Graceful shutdown when receiving a termination signal.
+- Centralized logging through the systemd journal.
+- Running under a dedicated, non-root Linux user.
+
+## 2. What is systemd?
+
+**systemd** is the system and service manager used by many Linux distributions, including Ubuntu.
 
 It is responsible for managing system services and other processes during system startup and normal operation.
 
 Examples of services managed by systemd:
 
-SSH server
-Cron service
-Docker service
-Network services
-Custom Python background workers
+- SSH server
+- Cron service
+- Docker service
+- Network services
+- Custom Python background workers
 
-In this project: systemd manages my testpress-worker Python application.
+In this project, systemd manages the `testpress-worker` Python application.
 
-3. What is systemctl?
+## 3. What is systemctl?
 
-systemctl is the command-line utility used to communicate with systemd.
+**systemctl** is the command-line utility used to communicate with systemd.
 
-We use it to start, stop, restart, enable, disable and inspect services.
+It provides commands to start, stop, restart, enable, disable and inspect services.
 
-Common commands:
+### Common Commands
 
-Command	Purpose
-sudo systemctl start SERVICE	Start a service
-sudo systemctl stop SERVICE	Stop a service
-sudo systemctl restart SERVICE	Restart a service
-sudo systemctl status SERVICE	Check service status
-sudo systemctl enable SERVICE	Enable automatic startup at boot
-sudo systemctl disable SERVICE	Disable automatic startup at boot
-systemctl is-active SERVICE	Check whether service is active
-systemctl is-enabled SERVICE	Check whether service is enabled
-sudo systemctl daemon-reload	Reload systemd unit definitions
-4. What is a daemon?
+| Command | Purpose |
+|---|---|
+| `sudo systemctl start SERVICE` | Start a service |
+| `sudo systemctl stop SERVICE` | Stop a service |
+| `sudo systemctl restart SERVICE` | Restart a service |
+| `sudo systemctl status SERVICE` | Check service status |
+| `sudo systemctl enable SERVICE` | Enable automatic startup at boot |
+| `sudo systemctl disable SERVICE` | Disable automatic startup at boot |
+| `systemctl is-active SERVICE` | Check whether a service is active |
+| `systemctl is-enabled SERVICE` | Check whether a service is enabled |
+| `sudo systemctl daemon-reload` | Reload systemd unit definitions |
 
-A daemon is a background process that runs without requiring an interactive terminal session.
+## 4. What is a daemon?
+
+A **daemon** is a background process that runs without requiring an interactive terminal session.
 
 Examples:
 
-sshd – SSH server daemon
-cron – Scheduled task daemon
-systemd-journald – Logging service
-Our Python worker – A background application process
+- `sshd` – SSH server daemon
+- `cron` – Scheduled task daemon
+- `systemd-journald` – Logging service
+- Python worker – Background application process
 
-Important distinction:
+### Important Distinction
 
-A daemon is a background process.
-systemd is a service manager that can manage daemons.
-systemctl is the command-line tool used to control systemd.
+- A daemon is a background process.
+- systemd is a service manager that can manage daemons.
+- systemctl is the command-line utility used to communicate with systemd.
 
 Not every background process is necessarily managed by systemd.
 
-5. Where should systemd service files be located?
+## 5. systemd Unit File Locations
 
-To understand where systemd searches for unit files, use:
+To understand where systemd searches for unit files, execute:
 
-bash
+```bash
 systemd-analyze unit-paths
+```
 
+This command displays the directories systemd searches for unit files.
 
-This displays the directories systemd searches for unit files.
+### Important Locations
 
-Important locations:
+| Directory | Purpose |
+|---|---|
+| `/etc/systemd/system/` | Administrator-created services and local overrides |
+| `/run/systemd/system/` | Runtime unit files |
+| `/usr/lib/systemd/system/` | System and package-provided unit files on many distributions |
+| `/lib/systemd/system/` | Package-provided unit files on some distributions |
 
-Directory	Purpose
-/etc/systemd/system/	Administrator-created services and local overrides
-/run/systemd/system/	Runtime unit files
-/usr/lib/systemd/system/	System and package-provided unit files on many distributions
-/lib/systemd/system/	Package-provided unit files on some distributions
+For this project, the custom service file is located at:
 
-For our custom application, we created:
-
-text
+```text
 /etc/systemd/system/testpress-worker.service
-
+```
 
 This is the recommended location for a system-wide custom service.
 
-Note: The exact unit search paths vary between Linux distributions.
+**Note:** Exact unit search paths vary between Linux distributions.
 
-6. Why are app.py and the service file in different locations?
+## 6. Why Are the Application and Service File in Different Locations?
 
-Our project has two important locations:
+The project uses two important locations.
 
-Application location:
+### Application Location
 
-text
+```text
 /opt/testpress-worker/app.py
+```
 
+### systemd Service Configuration
 
-Systemd service configuration:
-
-text
+```text
 /etc/systemd/system/testpress-worker.service
+```
 
+### Difference Between These Locations
 
-Why?
-
-The application and its service configuration have different responsibilities.
-
-Location	Responsibility
-/opt/testpress-worker/	Stores the deployed application
-/etc/systemd/system/	Stores instructions for systemd about how to manage the application
+| Location | Responsibility |
+|---|---|
+| `/opt/testpress-worker/` | Stores the deployed application |
+| `/etc/systemd/system/` | Stores instructions for systemd about how to manage the application |
 
 The service file tells systemd:
 
-Which user should execute the application.
-Which working directory to use.
-Which Python interpreter to execute.
-Where environment variables are stored.
-How to restart the application.
+- Which user should execute the application.
+- Which working directory to use.
+- Which Python interpreter to execute.
+- Where environment variables are stored.
+- How to restart the application.
 
-We could technically execute the application directly from the Git repository.
+It is technically possible to execute an application directly from a Git repository.
 
-However, keeping deployed applications under /opt separates application deployment from development files.
+However, keeping deployed applications under `/opt` separates application deployment from development files.
 
-This makes the deployment easier to manage.
+This separation makes deployment and maintenance easier to manage.
 
-7. Difference Between start and enable
+## 7. Difference Between start and enable
 
 These two commands perform different operations.
 
-Start:
+### Start
 
-bash
+```bash
 sudo systemctl start testpress-worker
+```
 
+- Starts the service immediately.
+- Does not automatically configure the service to start after a reboot.
 
-Starts the service immediately.
+### Enable
 
-It does not automatically configure the service to start after a reboot.
-
-Enable:
-
-bash
+```bash
 sudo systemctl enable testpress-worker
+```
 
+- Configures the service to start automatically during the appropriate system boot target.
+- Does not necessarily start the service immediately.
 
-Configures the service to start automatically during the appropriate system boot target.
+### Start and Enable Together
 
-It does not necessarily start the service immediately.
-
-To do both:
-
-bash
+```bash
 sudo systemctl enable --now testpress-worker
+```
 
-8. Difference Between stop and disable
+This enables automatic startup and starts the service immediately.
 
-Stop:
+## 8. Difference Between stop and disable
 
-bash
+### Stop
+
+```bash
 sudo systemctl stop testpress-worker
+```
 
+- Stops the currently running service.
+- Does not remove its automatic startup configuration.
 
-Stops the currently running service.
+### Disable
 
-It does not remove its automatic startup configuration.
-
-Disable:
-
-bash
+```bash
 sudo systemctl disable testpress-worker
+```
 
+- Removes the automatic startup configuration.
+- Does not necessarily stop a service that is already running.
 
-Removes the automatic startup configuration.
+### Stop and Disable Together
 
-It does not necessarily stop a service that is already running.
-
-To disable and stop:
-
-bash
+```bash
 sudo systemctl disable --now testpress-worker
+```
 
-Quick comparison
-Command	Immediate effect	Boot effect
-start	Starts service	No change
-stop	Stops service	No change
-enable	No immediate start by default	Starts at boot
-disable	Does not necessarily stop	Removes automatic startup
-restart	Restarts service	No change
-9. What is journalctl?
+### Quick Comparison
 
-journalctl is the command-line utility used to read logs collected by the systemd journal.
+| Command | Immediate Effect | Boot Effect |
+|---|---|---|
+| `start` | Starts service | No change |
+| `stop` | Stops service | No change |
+| `enable` | No immediate start by default | Starts at boot |
+| `disable` | Does not necessarily stop | Removes automatic startup |
+| `restart` | Restarts service | No change |
 
-It helps us troubleshoot services and understand what happened when an application started, stopped or failed.
+## 9. What is journalctl?
 
-Useful commands:
+**journalctl** is the command-line utility used to read logs collected by the systemd journal.
 
-bash
-# View all logs from our service
+It helps troubleshoot services and understand what happened when an application started, stopped or failed.
+
+### Useful Commands
+
+**View all logs from the service:**
+
+```bash
 journalctl -u testpress-worker
+```
 
-# View the last 20 log entries
+**View the last 20 log entries:**
+
+```bash
 journalctl -u testpress-worker -n 20
+```
 
-# Follow logs continuously
+**Follow logs continuously:**
+
+```bash
 journalctl -u testpress-worker -f
+```
 
-# View logs from the current boot
+**View logs from the current boot:**
+
+```bash
 journalctl -u testpress-worker -b
+```
 
-# View detailed service logs
+**View detailed service logs:**
+
+```bash
 sudo journalctl -xeu testpress-worker
+```
 
-# View logs without a pager
+**View logs without a pager:**
+
+```bash
 journalctl -u testpress-worker --no-pager
+```
 
+In this project, journalctl is used to verify heartbeat messages, service startup and graceful shutdown.
 
-In our project, journalctl helped us verify the Python worker's heartbeat messages and graceful shutdown.
+## 10. What is systemd-analyze verify?
 
-10. What is systemd-analyze verify?
+The following command checks a service unit file for configuration errors:
 
-We used:
-
-bash
+```bash
 sudo systemd-analyze verify /etc/systemd/system/testpress-worker.service
-
-
-This checks a service unit file for configuration errors.
+```
 
 It helps identify invalid directives and other configuration problems.
 
-We also used:
+To display the directories systemd searches for unit files, execute:
 
-bash
+```bash
 systemd-analyze unit-paths
+```
 
+## 11. How Does the Python Worker Work?
 
-This displays the directories systemd searches for unit files.
+The application is deployed at:
 
-11. How does our Python worker work?
-
-Our application is deployed at:
-
-text
+```text
 /opt/testpress-worker/app.py
+```
 
+The systemd configuration is located at:
 
-The systemd configuration is:
-
-text
+```text
 /etc/systemd/system/testpress-worker.service
+```
 
+### Service Configuration
 
-The service configuration contains:
-
-ini
+```ini
 [Unit]
 Description=Testpress Python Background Worker
 After=network.target
@@ -278,102 +300,111 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+```
 
-How the execution happens
-Linux boots.
-systemd starts managing the system services.
-systemd checks which services are enabled.
-Our testpress-worker service is enabled.
-systemd reads its service configuration.
-systemd executes the Python application using /usr/bin/python3.
-The application runs as labuser, not root.
-The application continuously writes heartbeat messages.
-If the application crashes, systemd attempts to restart it according to the restart policy.
-12. What happens when we terminate the process?
+### Execution Flow
 
-We tested two scenarios.
+1. Linux boots.
+2. systemd starts managing the system services.
+3. systemd checks which services are enabled.
+4. The `testpress-worker` service is enabled.
+5. systemd reads its service configuration.
+6. systemd executes the Python application using `/usr/bin/python3`.
+7. The application runs under the configured `labuser` account, not root.
+8. The application continuously writes heartbeat messages.
+9. If the application crashes, systemd attempts to restart it according to the configured restart policy.
 
-Scenario 1: Graceful termination
-bash
-sudo kill -SIGTERM 5931
+## 12. Process Termination and Restart Behaviour
 
+Two termination scenarios were tested.
+
+### Scenario 1: Graceful Termination
+
+Execute:
+
+```bash
+sudo kill -SIGTERM <PID>
+```
 
 The Python application receives signal 15 (SIGTERM).
 
-It handles the signal and performs a graceful shutdown.
+The application handles the signal and performs a graceful shutdown.
 
-The logs showed:
+Example log output:
 
-text
+```text
 Received signal 15. Shutting down gracefully.
 Worker shutdown complete.
+```
 
+With `Restart=always`, systemd can restart the process even after a successful exit. Restart behaviour also depends on how the service was stopped.
 
-The service became inactive.
+### Scenario 2: Forced Termination
 
-Scenario 2: Forced termination
-bash
-sudo kill -9 7479
+Execute:
 
+```bash
+sudo kill -9 <PID>
+```
 
 SIGKILL immediately terminates the process.
 
 The Python application cannot handle this signal or perform its graceful shutdown routine.
 
-systemd detects that the process has failed and restarts it according to:
+systemd detects that the main process has been killed and restarts it according to:
 
-ini
+```ini
 Restart=always
 RestartSec=5
+```
 
+A new process starts with a different PID.
 
-We verified that a new process started with a different PID.
+## 13. Automatic Startup After Reboot
 
-13. How did we verify automatic startup after reboot?
+Enable the service:
 
-We enabled the service:
-
-bash
+```bash
 sudo systemctl enable testpress-worker
+```
 
+Reboot Linux:
 
-Then rebooted Linux:
-
-bash
+```bash
 sudo reboot
+```
 
+After logging in again, check the service status:
 
-After logging in again, we checked:
-
-bash
+```bash
 sudo systemctl status testpress-worker
+```
 
+Verify automatic startup and process execution:
 
-We also verified:
-
-bash
+```bash
 systemctl is-enabled testpress-worker
 systemctl is-active testpress-worker
 pgrep -af app.py
+```
 
+### Expected Results
 
-Expected results:
-
-text
+```text
 enabled
 active
 443 /usr/bin/python3 /opt/testpress-worker/app.py
-
+```
 
 The PID may change after every reboot.
 
-This confirmed that our worker started automatically after reboot.
+These checks confirm that the worker starts automatically after reboot.
 
-14. Final Project Verification
+## 14. Final Project Verification
 
-The following commands can be used to verify the entire setup:
+Execute the following commands to verify the entire setup:
 
-bash
+```bash
 echo "===== SERVICE STATUS ====="
 systemctl is-active testpress-worker
 
@@ -388,25 +419,51 @@ sudo systemctl status testpress-worker
 
 echo "===== RECENT LOGS ====="
 journalctl -u testpress-worker -n 10 --no-pager
+```
 
-15. Key Takeaways
+## 15. What This Project Covers
 
-Through this project, I learned:
+This project demonstrates practical knowledge of:
 
-Linux process management.
-Background processes and daemons.
-systemd and systemctl.
-systemd unit files and their locations.
-Deploying applications under /opt.
-Managing environment variables using environment files.
-Running applications under a dedicated Linux user.
-Starting and stopping Linux services.
-Enabling services at boot.
-Restart policies and automatic recovery.
-Graceful shutdown using SIGTERM.
-Forced termination using SIGKILL.
-Monitoring logs using journalctl.
-Validating service configuration.
-Testing service persistence across system reboots.
+- Linux process management.
+- Background processes and daemons.
+- systemd and systemctl.
+- systemd unit files and their locations.
+- Application deployment under `/opt`.
+- Environment variable management using environment files.
+- Running applications under a dedicated Linux user.
+- Starting and stopping Linux services.
+- Enabling services at boot.
+- Restart policies and automatic recovery.
+- Graceful shutdown using SIGTERM.
+- Forced termination using SIGKILL.
+- Monitoring logs using journalctl.
+- Validating service configuration.
+- Testing service persistence across system reboots.
 
-Final learning: Instead of manually running a Python application from a terminal, I now understand how to deploy it as a Linux-managed background service that can start automatically, run continuously and recover from unexpected process termination.
+## 16. Project Structure
+
+```text
+linux-process-mangement/
+│
+├── app.py
+├── worker.env
+├── testpress-worker.service
+├── learn.md
+├── README.md
+│
+└── evidence/
+    ├── 01-running-process.png
+    ├── 02-graceful-shutdown.png
+    ├── 03-forced-termination.png
+    ├── 04-automatic-restart.png
+    └── 05-enabled-at-boot.png
+```
+
+## 17. Conclusion
+
+This project demonstrates how to deploy a Python application as a Linux-managed background service using systemd.
+
+It covers service configuration, process management, automatic startup, restart policies, graceful termination and centralized log monitoring.
+
+The result is a Python worker that can operate independently of an interactive terminal session and be managed through standard Linux service management commands.
